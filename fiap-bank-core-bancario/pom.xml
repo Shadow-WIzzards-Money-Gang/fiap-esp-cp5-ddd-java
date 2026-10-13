@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath />
+    </parent>
+
+    <groupId>br.com.fiap.bank</groupId>
+    <artifactId>fiap-bank-core-bancario</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>FIAP Bank - Core Bancario</name>
+    <description>Core Bancario (clientes e contas) em DDD multi-modulo</description>
+
+    <modules>
+        <module>fiap-bank-core-bancario-domain</module>
+        <module>fiap-bank-core-bancario-infrastructure</module>
+        <module>fiap-bank-core-bancario-application</module>
+        <module>fiap-bank-core-bancario-presentation</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Regras do enforcer: desligadas por padrao, cada modulo liga a sua -->
+        <enforcer.pureza-domain.skip>true</enforcer.pureza-domain.skip>
+        <enforcer.isolamento-presentation.skip>true</enforcer.isolamento-presentation.skip>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>br.com.fiap.bank</groupId>
+                <artifactId>fiap-bank-core-bancario-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.fiap.bank</groupId>
+                <artifactId>fiap-bank-core-bancario-infrastructure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.fiap.bank</groupId>
+                <artifactId>fiap-bank-core-bancario-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.fiap.bank</groupId>
+                <artifactId>fiap-bank-core-bancario-presentation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <!-- domain: Java puro, sem framework -->
+                    <execution>
+                        <id>pureza-domain</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${enforcer.pureza-domain.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework*</exclude>
+                                        <exclude>jakarta.persistence*</exclude>
+                                        <exclude>org.hibernate*</exclude>
+                                        <exclude>io.github.openfeign*</exclude>
+                                    </excludes>
+                                    <message>O modulo domain deve ser Java puro: sem Spring, Jakarta Persistence, Hibernate ou Feign.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- presentation: so enxerga application em tempo de compilacao -->
+                    <execution>
+                        <id>isolamento-presentation</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${enforcer.isolamento-presentation.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>false</searchTransitive>
+                                    <excludes>
+                                        <exclude>br.com.fiap.bank:fiap-bank-core-bancario-domain:*:*:compile</exclude>
+                                        <exclude>br.com.fiap.bank:fiap-bank-core-bancario-infrastructure:*:*:compile</exclude>
+                                    </excludes>
+                                    <message>O modulo presentation nao pode depender de domain/infrastructure em escopo compile (use runtime).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
