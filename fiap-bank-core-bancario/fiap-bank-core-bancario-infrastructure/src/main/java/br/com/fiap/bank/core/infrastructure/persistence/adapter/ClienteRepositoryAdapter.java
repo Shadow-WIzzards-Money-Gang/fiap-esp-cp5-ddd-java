@@ -3,6 +3,7 @@ package br.com.fiap.bank.core.infrastructure.persistence.adapter;
 import br.com.fiap.bank.core.domain.model.Cliente;
 import br.com.fiap.bank.core.domain.repository.ClienteRepository;
 import br.com.fiap.bank.core.domain.valueobject.Cpf;
+import br.com.fiap.bank.core.domain.valueobject.Email;
 import br.com.fiap.bank.core.infrastructure.persistence.mapper.ClienteMapper;
 import br.com.fiap.bank.core.infrastructure.persistence.repository.ClienteJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,11 @@ public class ClienteRepositoryAdapter implements ClienteRepository {
     @Override
     public Optional<Cliente> buscarPorCpf(Cpf cpf) {
         return clienteJpaRepository.findByCpf(cpf.valor()).map(clienteMapper::paraDominio);
+    }
+
+    @Override
+    public Optional<Cliente> buscarPorEmail(Email email) {
+        return clienteJpaRepository.findByEmail(email.valor()).map(clienteMapper::paraDominio);
     }
 
     @Override
