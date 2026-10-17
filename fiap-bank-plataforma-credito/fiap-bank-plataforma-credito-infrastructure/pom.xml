@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>FIAP Bank - Plataforma de Credito - Infrastructure</name>
-    <description>Entidades JPA, repositorios Spring Data, adapters e clients (Core Bancario, SCR, Bureau, CRM, Notificacoes)</description>
+    <description>Entidades JPA, repositorios Spring Data, adapters e clients (Core Bancario, SCR, Bureau, Notificacoes)</description>
 
     <dependencies>
         <dependency>

@@ -5,11 +5,14 @@ import br.com.fiap.bank.plataforma.domain.exception.ValorInvalidoException;
 
 /**
  * Dados da proposta enviados pelo cliente. Imutavel: nao muda depois que a solicitacao e registrada.
+ *
+ * @param tipoCreditoInformado texto exatamente como o front-end enviou (ex.: "EMPRÉSTIMO PESSOAL"),
+ *                             devolvido sem alteracao nas respostas, como no sistema legado
  */
 public record PropostaCredito(
         Cpf cpf,
         String nomeCliente,
-        TipoCredito tipoCredito,
+        String tipoCreditoInformado,
         Dinheiro valorSolicitado,
         int quantidadeParcelas,
         Dinheiro rendaMensal
@@ -22,9 +25,7 @@ public record PropostaCredito(
         if (nomeCliente == null || nomeCliente.isBlank()) {
             throw new ValorInvalidoException("Nome do cliente e obrigatorio.");
         }
-        if (tipoCredito == null) {
-            throw new ValorInvalidoException("Tipo de credito e obrigatorio.");
-        }
+        TipoCredito.de(tipoCreditoInformado);
         if (valorSolicitado == null || !valorSolicitado.ehPositivo()) {
             throw new ValorInvalidoException("Valor solicitado deve ser maior que zero.");
         }
@@ -35,6 +36,14 @@ public record PropostaCredito(
             throw new ValorInvalidoException("Renda mensal e obrigatoria.");
         }
         nomeCliente = nomeCliente.trim();
+        tipoCreditoInformado = tipoCreditoInformado.trim();
+    }
+
+    /**
+     * Tipo de credito reconhecido a partir do texto informado.
+     */
+    public TipoCredito tipoCredito() {
+        return TipoCredito.de(tipoCreditoInformado);
     }
 
     /**

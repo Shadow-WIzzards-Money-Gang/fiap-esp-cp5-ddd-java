@@ -36,7 +36,7 @@ public class SolicitacaoCreditoMapper {
                 .id(solicitacao.getId())
                 .cpfCliente(proposta.cpf().valor())
                 .nomeCliente(proposta.nomeCliente())
-                .tipoCredito(proposta.tipoCredito())
+                .tipoCredito(proposta.tipoCreditoInformado())
                 .valorSolicitado(proposta.valorSolicitado().valor())
                 .quantidadeParcelas(proposta.quantidadeParcelas())
                 .rendaMensal(proposta.rendaMensal().valor())
