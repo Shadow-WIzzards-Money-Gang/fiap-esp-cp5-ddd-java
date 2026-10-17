@@ -4,7 +4,6 @@ import br.com.fiap.bank.plataforma.domain.exception.IntegracaoExternaException;
 import br.com.fiap.bank.plataforma.domain.gateway.CoreBancarioGateway;
 import br.com.fiap.bank.plataforma.domain.valueobject.ContaCliente;
 import br.com.fiap.bank.plataforma.domain.valueobject.Cpf;
-import br.com.fiap.bank.plataforma.domain.valueobject.Dinheiro;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,21 +28,9 @@ public class CoreBancarioGatewayAdapter implements CoreBancarioGateway {
             log.info("[CORE BANCARIO] Cliente com CPF {} nao possui conta no Core Bancario.", cpf);
             return Optional.empty();
         } catch (FeignException e) {
-            // Sem dados falsos: a ausencia da conta faz o motor encaminhar a proposta para a Mesa
-            log.warn("[CORE BANCARIO] Falha ao consultar a conta do CPF {} (status {}): {}",
-                    cpf, e.status(), e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-    @Override
-    public void creditar(String numeroConta, Dinheiro valor) {
-        try {
-            coreBancarioFeignClient.atualizarSaldo(numeroConta, AtualizarSaldoCoreRequest.deposito(valor.valor()));
-            log.info("[CORE BANCARIO] Desembolso de R$ {} creditado na conta {}.", valor, numeroConta);
-        } catch (FeignException e) {
-            throw new IntegracaoExternaException("Core Bancario nao confirmou o credito de R$ " + valor
-                    + " na conta " + numeroConta + ".", e);
+            log.error("[CORE BANCARIO] Falha ao consultar a conta do CPF {} (status {}).", cpf, e.status(), e);
+            throw new IntegracaoExternaException("Core Bancario indisponivel ao consultar a conta do CPF "
+                    + cpf + ".", e);
         }
     }
 }

@@ -1,7 +1,6 @@
 package br.com.fiap.bank.plataforma.infrastructure.persistence.entity;
 
 import br.com.fiap.bank.plataforma.domain.enums.StatusSolicitacao;
-import br.com.fiap.bank.plataforma.domain.enums.TipoCredito;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,9 +37,9 @@ public class SolicitacaoCreditoJpaEntity {
     @Column(name = "nome_cliente", nullable = false)
     private String nomeCliente;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_credito", nullable = false, length = 30)
-    private TipoCredito tipoCredito;
+    /** Texto exatamente como o front-end enviou (ex.: "EMPRÉSTIMO PESSOAL"). */
+    @Column(name = "tipo_credito", nullable = false, length = 50)
+    private String tipoCredito;
 
     @Column(name = "valor_solicitado", nullable = false, precision = 15, scale = 2)
     private BigDecimal valorSolicitado;
@@ -61,7 +60,8 @@ public class SolicitacaoCreditoJpaEntity {
     @Column(name = "scr_restricoes", nullable = false)
     private Boolean restricaoScr;
 
-    @Column(name = "score_bureau", nullable = false)
+    /** Nulo apenas se a solicitacao for gravada antes de avaliada pelo motor de credito. */
+    @Column(name = "score_bureau")
     private Integer scoreBureau;
 
     @Column(name = "data_solicitacao", nullable = false)

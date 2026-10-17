@@ -31,6 +31,22 @@ class PropostaCreditoTest {
     }
 
     @Test
+    void guardaOTextoDoTipoComoFoiEnviadoEExpoeOEnum() {
+        PropostaCredito proposta = new PropostaCredito(new Cpf("98765432100"), "Carlos Eduardo Oliveira",
+                " CRÉDITO IMOBILIÁRIO ", Dinheiro.de("1000.00"), 10, Dinheiro.de("12000.00"));
+
+        assertThat(proposta.tipoCreditoInformado()).isEqualTo("CRÉDITO IMOBILIÁRIO");
+        assertThat(proposta.tipoCredito()).isEqualTo(TipoCredito.CREDITO_IMOBILIARIO);
+    }
+
+    @Test
+    void rejeitaTipoDeCreditoDesconhecido() {
+        assertThatThrownBy(() -> new PropostaCredito(new Cpf("98765432100"), "Carlos Eduardo Oliveira",
+                "CHEQUE_ESPECIAL", Dinheiro.de("1000.00"), 10, Dinheiro.de("12000.00")))
+                .isInstanceOf(ValorInvalidoException.class);
+    }
+
+    @Test
     void cpfAceitaMascaraENormalizaParaOnzeDigitos() {
         assertThat(new Cpf("123.456.789-00").valor()).isEqualTo("12345678900");
         assertThatThrownBy(() -> new Cpf("1234")).isInstanceOf(ValorInvalidoException.class);
@@ -38,6 +54,6 @@ class PropostaCreditoTest {
 
     private static PropostaCredito proposta(String valor, int parcelas) {
         return new PropostaCredito(new Cpf("98765432100"), "Carlos Eduardo Oliveira",
-                TipoCredito.CREDITO_IMOBILIARIO, Dinheiro.de(valor), parcelas, Dinheiro.de("12000.00"));
+                "CREDITO_IMOBILIARIO", Dinheiro.de(valor), parcelas, Dinheiro.de("12000.00"));
     }
 }

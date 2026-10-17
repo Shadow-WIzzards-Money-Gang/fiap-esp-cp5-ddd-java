@@ -11,10 +11,4 @@ public record ContaCliente(
         BigDecimal saldo,
         String statusConta
 ) {
-
-    private static final String STATUS_ATIVA = "ATIVA";
-
-    public boolean estaAtiva() {
-        return STATUS_ATIVA.equalsIgnoreCase(statusConta);
-    }
 }
