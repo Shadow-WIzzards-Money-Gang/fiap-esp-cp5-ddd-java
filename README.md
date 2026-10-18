@@ -110,13 +110,12 @@ O **Lombok** simplifica getters, construtores, builders e logs em todas as camad
 
 ### Domínio refatorado
 
-- **Agregado:** `SolicitacaoCredito`. Não tem setters; o estado muda só por `registrar`, `aprovarPelaMesa` e `reprovarPelaMesa`. A Mesa só decide solicitações que estão aguardando análise.
-- **Value Objects:** `Cpf`, `Dinheiro`, `PropostaCredito`, `AnaliseRisco`, `ContaCliente` e `DecisaoCredito`.
-- **Enums:** `StatusSolicitacao` e `TipoCredito`. O `TipoCredito` aceita os valores com acento enviados pelo app mobile, como `"EMPRÉSTIMO PESSOAL"`.
-- **Serviços de domínio:**
-  - `AvaliadorDeRisco`: consulta SCR, Bureau, CRM e Core pelos ports.
-  - `MotorDeCredito`: aplica as regras de concessão.
-- **Ports:** `SolicitacaoCreditoRepository`, `ScrGateway`, `BureauCreditoGateway`, `CrmGateway`, `CoreBancarioGateway` e `NotificacaoGateway`.
+- **Agregado:** `SolicitacaoCredito`. Não tem setters; o estado muda só por `avaliar` (motor automático), `aprovar` e `reprovar` (decisão da Mesa). A Mesa só decide solicitações que ainda estão `EM_ANALISE`; qualquer outra transição lança `TransicaoStatusInvalidaException`.
+- **Value Objects:** `Cpf`, `Dinheiro`, `PropostaCredito` e `ContaCliente`.
+- **Enums:** `StatusSolicitacao` e `TipoCredito`. O `TipoCredito` aceita os valores com acento enviados pelos front-ends, como `"EMPRÉSTIMO PESSOAL"`.
+- **Ports (gateways):** `SolicitacaoCreditoRepository`, `ScrGateway`, `BureauCreditoGateway`, `CoreBancarioGateway` e `NotificacaoGateway`.
+
+A avaliação automática (`SolicitacaoCredito.avaliar`) é um método da própria entidade, não um service — por isso é testável isoladamente (ver `SolicitacaoCreditoTest`).
 
 ### Motor de regras de crédito
 
@@ -126,22 +125,21 @@ As regras são avaliadas em ordem; a primeira que se aplica decide:
 | :---: | :--- | :--- |
 | 1 | Restrição ativa no SCR | `REPROVADO` |
 | 2 | Score do Bureau menor que 500 | `REPROVADO` |
-| 3 | Sem conta ativa no Core Bancário (ou Core indisponível) | `EM_ANALISE` (Mesa) |
-| 4 | Histórico de inadimplência no CRM | `EM_ANALISE` (Mesa) |
-| 5 | Parcela estimada acima de 30% da renda mensal | `EM_ANALISE` (Mesa) |
-| 6 | Nenhuma das anteriores | `APROVADO` |
+| 3 | Parcela estimada acima de 30% da renda mensal | `EM_ANALISE` (Mesa) |
+| 4 | Nenhuma das anteriores | `APROVADO` |
 
-Quando a solicitação é aprovada, o valor é creditado na conta do cliente via `PUT /api/v1/contas/{numeroConta}/saldo` (`DEPOSITO`) no Core Bancário.
+A consulta à conta do cliente no Core Bancário é um endpoint de leitura (`GET /api/v1/clientes/{cpf}/conta`) e **não participa do motor de regras**: o cliente pode não ter conta ainda quando solicita o crédito. Não há desembolso automático nem integração com CRM nesta versão.
 
 ### Integrações (infrastructure)
 
 | Sistema | Implementação |
 | :--- | :--- |
-| Core Bancário | OpenFeign: `GET /contas/cliente/{cpf}` e `PUT /contas/{numeroConta}/saldo` |
+| Core Bancário | OpenFeign: `GET /contas/cliente/{cpf}` (usado por `GET /api/v1/clientes/{cpf}/conta`) |
 | SCR (Banco Central) | Simulado: CPFs terminados em `9` têm restrição |
 | Bureau de Crédito | Simulado: score determinístico de 400 a 950 calculado a partir do CPF |
-| CRM corporativo | Simulado: CPFs terminados em `8` têm histórico negativo |
 | Sistema de Notificações | Simulado: a mensagem enviada ao cliente é registrada no log |
+
+Se o Core Bancário estiver indisponível, a consulta de conta responde `502 Bad Gateway` com a falha registrada no log — **não há mais fallback com dados fictícios** (esse era um dos problemas do sistema legado, ver diagnóstico acima).
 
 ### API RESTful (`/api/v1`)
 
@@ -167,8 +165,8 @@ Um **controller adaptador** mantém as rotas legadas em `/api/credito/*`. Ele s�
 | `/api/credito/aprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | — |
 | `/api/credito/reprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | — |
 
-- **Mesa de Operações:** o Feign client passou a consumir a API RESTful `/api/v1`.
-- **Internet Banking Mobile:** continua usando as rotas legadas por meio do adaptador, sem nenhuma alteração no app.
+- **Mesa de Operações** e **Internet Banking Mobile:** continuam consumindo as rotas legadas (`/api/credito/*`) sem nenhuma alteração; o adaptador garante que continuem funcionando.
+- O corpo de resposta mantém exatamente os mesmos nomes de campo do sistema legado (`id, cpfCliente, nomeCliente, tipoCredito, valorSolicitado, quantidadeParcelas, rendaMensal, scoreCredito, status, parecerOperador, scrRestricoes, scoreBureau, dataSolicitacao, dataAtualizacao`), tanto nas rotas novas quanto nas legadas.
 
 ---
 
