@@ -1,4 +1,4 @@
-package br.com.fiap.bank.core.application.dto;
+package br.com.fiap.bank.core.application.dto.response;
 
 import br.com.fiap.bank.core.domain.model.Cliente;
 

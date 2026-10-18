@@ -1,4 +1,4 @@
-package br.com.fiap.bank.core.application.dto;
+package br.com.fiap.bank.core.application.dto.request;
 
 import br.com.fiap.bank.core.domain.enums.TipoConta;
 import jakarta.validation.constraints.NotBlank;

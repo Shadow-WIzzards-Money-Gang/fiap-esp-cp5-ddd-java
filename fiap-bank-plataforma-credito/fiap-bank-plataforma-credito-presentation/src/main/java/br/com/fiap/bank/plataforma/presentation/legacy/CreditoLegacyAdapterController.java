@@ -29,7 +29,7 @@ import java.util.List;
 @Deprecated
 @RestController
 @RequestMapping("/api/credito")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:4200")
 @RequiredArgsConstructor
 public class CreditoLegacyAdapterController {
 
@@ -54,11 +54,16 @@ public class CreditoLegacyAdapterController {
         return ResponseEntity.ok(solicitacaoCreditoService.listarPorCpf(request.cpfCliente()));
     }
 
-    /** @deprecated use {@code GET /api/v1/clientes/{cpf}/conta} */
+    /**
+     * Sem conta ou com o Core fora do ar, responde 200 com {@code statusConta} SEM_CONTA ou INDISPONIVEL,
+     * porque o Internet Banking nao trata erro nesta chamada.
+     *
+     * @deprecated use {@code GET /api/v1/clientes/{cpf}/conta}
+     */
     @Deprecated
     @PostMapping("/consultarClienteCore")
     public ResponseEntity<ContaClienteResponse> consultarClienteCore(@RequestBody CpfLegacyRequest request) {
-        return ResponseEntity.ok(solicitacaoCreditoService.buscarContaCliente(request.cpfCliente()));
+        return ResponseEntity.ok(solicitacaoCreditoService.consultarSituacaoConta(request.cpfCliente()));
     }
 
     /** @deprecated use {@code GET /api/v1/solicitacoes} */

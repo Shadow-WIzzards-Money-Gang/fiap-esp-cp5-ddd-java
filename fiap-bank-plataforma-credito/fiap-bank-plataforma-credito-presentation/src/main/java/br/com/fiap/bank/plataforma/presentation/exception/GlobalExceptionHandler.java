@@ -5,6 +5,7 @@ import br.com.fiap.bank.plataforma.application.exception.RecursoNaoEncontradoExc
 import br.com.fiap.bank.plataforma.application.exception.RegraNegocioException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -36,7 +37,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErroResponse> tratarParametroInvalido(ConstraintViolationException ex,
                                                                 HttpServletRequest request) {
         List<CampoErro> campos = ex.getConstraintViolations().stream()
-                .map(violacao -> new CampoErro(violacao.getPropertyPath().toString(), violacao.getMessage()))
+                .map(violacao -> new CampoErro(ultimoNo(violacao.getPropertyPath()), violacao.getMessage()))
                 .toList();
         return responder(HttpStatus.BAD_REQUEST, "Dados da requisicao invalidos.", request, campos);
     }
@@ -90,6 +91,15 @@ public class GlobalExceptionHandler {
         ErroResponse corpo = new ErroResponse(OffsetDateTime.now(), status.value(), descrever(status), mensagem,
                 request.getRequestURI(), campos);
         return ResponseEntity.status(status).body(corpo);
+    }
+
+    /** "solicitar.request.quantidadeParcelas" vira "quantidadeParcelas". */
+    private String ultimoNo(Path caminho) {
+        String nome = caminho.toString();
+        for (Path.Node no : caminho) {
+            nome = no.getName();
+        }
+        return nome;
     }
 
     private String descrever(HttpStatusCode status) {

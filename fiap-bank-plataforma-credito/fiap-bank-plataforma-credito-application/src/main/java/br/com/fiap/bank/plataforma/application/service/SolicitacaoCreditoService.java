@@ -5,6 +5,7 @@ import br.com.fiap.bank.plataforma.application.dto.request.CriarSolicitacaoReque
 import br.com.fiap.bank.plataforma.application.dto.response.ContaClienteResponse;
 import br.com.fiap.bank.plataforma.application.dto.response.SolicitacaoCreditoResponse;
 import br.com.fiap.bank.plataforma.application.exception.RecursoNaoEncontradoException;
+import br.com.fiap.bank.plataforma.domain.exception.IntegracaoExternaException;
 import br.com.fiap.bank.plataforma.domain.gateway.BureauCreditoGateway;
 import br.com.fiap.bank.plataforma.domain.gateway.CoreBancarioGateway;
 import br.com.fiap.bank.plataforma.domain.gateway.NotificacaoGateway;
@@ -14,18 +15,21 @@ import br.com.fiap.bank.plataforma.domain.repository.SolicitacaoCreditoRepositor
 import br.com.fiap.bank.plataforma.domain.valueobject.Cpf;
 import br.com.fiap.bank.plataforma.domain.valueobject.Dinheiro;
 import br.com.fiap.bank.plataforma.domain.valueobject.PropostaCredito;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 
+@Slf4j
 @Service
+@Validated
 @Transactional
 @RequiredArgsConstructor
 public class SolicitacaoCreditoService {
-
-    private static final String STATUS_APROVADO = "APROVADO";
 
     private final SolicitacaoCreditoRepository solicitacaoCreditoRepository;
     private final ScrGateway scrGateway;
@@ -33,7 +37,7 @@ public class SolicitacaoCreditoService {
     private final NotificacaoGateway notificacaoGateway;
     private final CoreBancarioGateway coreBancarioGateway;
 
-    public SolicitacaoCreditoResponse solicitar(CriarSolicitacaoRequest request) {
+    public SolicitacaoCreditoResponse solicitar(@Valid CriarSolicitacaoRequest request) {
         PropostaCredito proposta = TradutorExcecaoDominio.obter(() -> new PropostaCredito(
                 new Cpf(request.cpfCliente()),
                 request.nomeCliente(),
@@ -72,16 +76,10 @@ public class SolicitacaoCreditoService {
         return SolicitacaoCreditoResponse.de(obterPorId(id));
     }
 
-    public SolicitacaoCreditoResponse atualizarStatus(Long id, AtualizarStatusRequest request) {
+    public SolicitacaoCreditoResponse atualizarStatus(Long id, @Valid AtualizarStatusRequest request) {
         SolicitacaoCredito solicitacao = obterPorId(id);
-        boolean aprovar = STATUS_APROVADO.equalsIgnoreCase(request.status());
-        TradutorExcecaoDominio.executar(() -> {
-            if (aprovar) {
-                solicitacao.aprovar(request.parecer());
-            } else {
-                solicitacao.reprovar(request.parecer());
-            }
-        });
+        DecisaoMesa decisao = DecisaoMesa.de(request.status());
+        TradutorExcecaoDominio.executar(() -> decisao.aplicar(solicitacao, request.parecer()));
 
         SolicitacaoCredito salva = solicitacaoCreditoRepository.salvar(solicitacao);
         notificacaoGateway.notificar(salva.getProposta().cpf(),
@@ -98,6 +96,24 @@ public class SolicitacaoCreditoService {
                 .map(ContaClienteResponse::de)
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Cliente com CPF " + cpfDoCliente + " nao possui conta no Core Bancario."));
+    }
+
+    /**
+     * Versao da consulta de conta para as rotas legadas, que nao podem devolver erro aos front-ends.
+     * Fallback explicito: sem conta ou com o Core indisponivel, responde com um statusConta que diz o motivo.
+     */
+    @Transactional(readOnly = true)
+    public ContaClienteResponse consultarSituacaoConta(String cpf) {
+        Cpf cpfDoCliente = TradutorExcecaoDominio.obter(() -> new Cpf(cpf));
+        try {
+            return coreBancarioGateway.buscarConta(cpfDoCliente)
+                    .map(ContaClienteResponse::de)
+                    .orElseGet(ContaClienteResponse::semConta);
+        } catch (IntegracaoExternaException e) {
+            log.warn("Core Bancario indisponivel para o CPF {}; respondendo com fallback {}.",
+                    cpfDoCliente, ContaClienteResponse.STATUS_INDISPONIVEL);
+            return ContaClienteResponse.indisponivel();
+        }
     }
 
     private SolicitacaoCredito obterPorId(Long id) {

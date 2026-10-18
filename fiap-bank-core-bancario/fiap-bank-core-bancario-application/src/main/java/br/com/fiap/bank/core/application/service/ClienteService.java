@@ -1,8 +1,8 @@
 package br.com.fiap.bank.core.application.service;
 
-import br.com.fiap.bank.core.application.dto.AtualizarClienteRequest;
-import br.com.fiap.bank.core.application.dto.ClienteResponse;
-import br.com.fiap.bank.core.application.dto.CriarClienteRequest;
+import br.com.fiap.bank.core.application.dto.request.AtualizarClienteRequest;
+import br.com.fiap.bank.core.application.dto.request.CriarClienteRequest;
+import br.com.fiap.bank.core.application.dto.response.ClienteResponse;
 import br.com.fiap.bank.core.application.exception.RecursoDuplicadoException;
 import br.com.fiap.bank.core.application.exception.RecursoNaoEncontradoException;
 import br.com.fiap.bank.core.domain.model.Cliente;

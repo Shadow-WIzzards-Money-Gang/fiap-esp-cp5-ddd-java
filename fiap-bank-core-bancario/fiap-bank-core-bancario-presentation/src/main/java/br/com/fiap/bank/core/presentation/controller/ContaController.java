@@ -1,8 +1,8 @@
 package br.com.fiap.bank.core.presentation.controller;
 
-import br.com.fiap.bank.core.application.dto.AtualizarSaldoRequest;
-import br.com.fiap.bank.core.application.dto.ContaResponse;
-import br.com.fiap.bank.core.application.dto.CriarContaRequest;
+import br.com.fiap.bank.core.application.dto.request.AtualizarSaldoRequest;
+import br.com.fiap.bank.core.application.dto.request.CriarContaRequest;
+import br.com.fiap.bank.core.application.dto.response.ContaResponse;
 import br.com.fiap.bank.core.application.service.ContaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/contas")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:4200")
 @RequiredArgsConstructor
 public class ContaController {
 

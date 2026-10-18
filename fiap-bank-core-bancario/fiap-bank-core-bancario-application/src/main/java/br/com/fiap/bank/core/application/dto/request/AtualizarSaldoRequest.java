@@ -1,4 +1,4 @@
-package br.com.fiap.bank.core.application.dto;
+package br.com.fiap.bank.core.application.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

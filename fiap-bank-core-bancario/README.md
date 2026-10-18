@@ -9,6 +9,7 @@ Microsserviço de **Core Bancário** responsável pela gestão central de client
 - **Java 21**
 - **Spring Boot 4.1+**
 - **Spring Data JPA**
+- **Jakarta Bean Validation** e **Lombok**
 - **H2 Database** (em memória)
 - **Maven** (projeto multi-módulo)
 
@@ -75,6 +76,7 @@ Ao subir o serviço, os seguintes dados são carregados automaticamente via `Dat
 
 - **Cliente 1:** Ana Silva | CPF: `12345678900` | Agência: `0001` | Conta: `12345-6` | Saldo: `R$ 12.500,00`
 - **Cliente 2:** Carlos Eduardo Oliveira | CPF: `98765432100` | Agência: `0001` | Conta: `78901-2` | Saldo: `R$ 45.800,50`
+- **Cliente 3:** Mariana Souza | CPF: `55544433399` | Sem conta (usada para testar restrição no SCR na Plataforma de Crédito)
 
 ---
 
@@ -101,3 +103,11 @@ Ao subir o serviço, os seguintes dados são carregados automaticamente via `Dat
 | `POST` | `/api/v1/contas` | Abre uma nova conta bancária para um cliente |
 | `PUT` | `/api/v1/contas/{numeroConta}/saldo` | Atualiza o saldo da conta (depósito ou saque) |
 | `DELETE` | `/api/v1/contas/{numeroConta}` | Encerra uma conta bancária |
+
+### Observações de contrato
+
+- `GET /api/v1/clientes` sem nenhum cliente responde `200` com lista vazia (`[]`), e não `404`: uma coleção vazia não é um recurso inexistente.
+- `POST /api/v1/contas` com CPF sem cliente cadastrado responde `404`; cliente que já tem conta responde `409`.
+- Erros seguem um corpo padronizado: `timestamp`, `status`, `erro`, `mensagem`, `path` e `campos` (em erros de validação).
+- Os controllers liberam CORS para `http://localhost:4200` (Internet Banking).
+- O Core não chama sistemas externos, por isso não declara o OpenFeign; no monorepo ele é usado pela Plataforma de Crédito, que consome esta API.
