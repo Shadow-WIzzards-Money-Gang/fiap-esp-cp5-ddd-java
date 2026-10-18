@@ -26,7 +26,7 @@ Nas duas, a aplicação segue **Domain-Driven Design** e **Maven multi-módulo**
 
 | Projeto | Tecnologia | Porta | Papel |
 | :--- | :--- | :---: | :--- |
-| [`fiap-bank-core-bancario`](./fiap-bank-core-bancario/README.md) | Java 21, Spring Boot 4.1, Spring Data JPA, DDD multi-módulo | `8080` | Clientes, contas e saldos (desembolso do crédito) |
+| [`fiap-bank-core-bancario`](./fiap-bank-core-bancario/README.md) | Java 21, Spring Boot 4.1, Spring Data JPA, DDD multi-módulo | `8080` | Clientes, contas e saldos |
 | [`fiap-bank-plataforma-credito`](./fiap-bank-plataforma-credito/README.md) | Java 21, Spring Boot 4.1, Spring Data JPA, OpenFeign, DDD multi-módulo | `8081` | Esteira e motor de decisão de crédito |
 | [`fiap-bank-mesa-operacoes-credito`](./fiap-bank-mesa-operacoes-credito/README.md) | Java 21, Spring Boot, Thymeleaf, OpenFeign | `8082` | Front-end do operador da mesa de crédito |
 | [`fiap-bank-internet-banking-mobile`](./fiap-bank-internet-banking-mobile/README.md) | Angular 17+, TypeScript | `4200` | App do cliente final para solicitar crédito |
@@ -36,7 +36,6 @@ Cliente ──► Internet Banking Mobile ──► Plataforma de Crédito ─�
                                           ▲      │
 Operador ──► Mesa de Operações ───────────┘      ├──► SCR (Banco Central)   [simulado]
                                                  ├──► Bureau de Crédito     [simulado]
-                                                 ├──► CRM corporativo       [simulado]
                                                  └──► Sistema de Notificações [simulado]
 ```
 
@@ -53,7 +52,7 @@ presentation ──► application ──► infrastructure ──► domain
 
 | Módulo | Responsabilidade |
 | :--- | :--- |
-| **domain** | Java puro: entidades, Value Objects, enums, serviços de domínio, exceções e interfaces (ports) de repositório e de sistemas externos. Não depende de nenhum framework. |
+| **domain** | Java puro: entidades, Value Objects, enums, exceções e interfaces (ports) de repositório e de sistemas externos. Não depende de nenhum framework. |
 | **infrastructure** | Adapters dos ports: entidades JPA (`@Entity`), repositórios Spring Data, mappers domínio ⇄ JPA e clients dos sistemas externos (OpenFeign para o Core Bancário). |
 | **application** | Casos de uso (services), DTOs imutáveis (Java Records) com Bean Validation e exceções de aplicação. |
 | **presentation** | Classe `@SpringBootApplication`, controllers REST e `GlobalExceptionHandler` (`@RestControllerAdvice`). |
@@ -90,6 +89,11 @@ O **Lombok** simplifica getters, construtores, builders e logs em todas as camad
 - Value Objects: `Cpf`, `Email` e `Saldo`.
 - Enums: `TipoConta` e `StatusConta`.
 
+**Decisões de contrato:**
+- `GET /api/v1/clientes` sem nenhum cliente responde `200` com lista vazia (`[]`), e não `404`: uma coleção vazia não é um recurso inexistente.
+- `POST /api/v1/contas` com CPF que não tem cliente cadastrado responde `404`; cliente que já tem conta responde `409`.
+- O Core não chama nenhum sistema externo, por isso não declara o OpenFeign. Na stack do monorepo, o OpenFeign é usado pela Plataforma de Crédito (cliente do Core) e pela Mesa de Operações.
+
 ---
 
 ## 💳 Plataforma de Crédito
@@ -102,11 +106,11 @@ O **Lombok** simplifica getters, construtores, builders e logs em todas as camad
 | Regra de negócio no service do Spring | `PlataformaCreditoService` | O motor de crédito não pode ser testado nem reutilizado fora do framework |
 | DTO dependente da entidade | `SolicitacaoCreditoResponseDTO.fromEntity` | O contrato da API fica preso ao modelo de persistência |
 | Rotas orientadas a ação, todas `POST` | `CreditoOperacoesNonRestfulController` | A URI tem verbos (`/solicitarCredito`, `/aprovarSolicitacao`…), as consultas usam `POST` com corpo, não há versionamento e a criação responde `200` em vez de `201` |
-| Consulta ao Core ignorada | Motor de regras | A conta do cliente é buscada, mas nunca entra na decisão |
-| Sem desembolso | Aprovação | O crédito aprovado não é registrado no Core Bancário |
+| Consulta ao Core sem uso | Motor de regras | A conta do cliente é buscada, mas nunca entra na decisão (*fora do escopo:* o motor de regras usa só SCR, Bureau e renda; a consulta virou um endpoint de leitura) |
+| Sem desembolso | Aprovação | O crédito aprovado não é registrado no Core Bancário (*fora do escopo* desta entrega) |
 | Dados falsos em falha | `CoreBancarioClientService` | Quando o Core está fora, a consulta devolve um saldo fictício e esconde a falha |
 | Sem validação e sem tratamento de erros | DTOs e controllers | Parcelas `0` causam divisão por zero, ID inexistente vira `500` e não há `@RestControllerAdvice` |
-| CRM ausente | Integrações | O cenário prevê consulta ao CRM, mas não há client |
+| CRM ausente | Integrações | O cenário prevê consulta ao CRM, mas não há client (*fora do escopo* desta entrega) |
 
 ### Domínio refatorado
 
@@ -139,7 +143,9 @@ A consulta à conta do cliente no Core Bancário é um endpoint de leitura (`GET
 | Bureau de Crédito | Simulado: score determinístico de 400 a 950 calculado a partir do CPF |
 | Sistema de Notificações | Simulado: a mensagem enviada ao cliente é registrada no log |
 
-Se o Core Bancário estiver indisponível, a consulta de conta responde `502 Bad Gateway` com a falha registrada no log — **não há mais fallback com dados fictícios** (esse era um dos problemas do sistema legado, ver diagnóstico acima).
+Na rota RESTful `GET /api/v1/clientes/{cpf}/conta`, cliente sem conta responde `404` e Core indisponível responde `502 Bad Gateway`, com a falha registrada no log — **não há mais fallback com dados fictícios** (esse era um dos problemas do sistema legado, ver diagnóstico acima).
+
+Na rota legada `POST /api/credito/consultarClienteCore`, que o Internet Banking chama sem tratar erro, a resposta é sempre `200` com um **fallback explícito**: `statusConta` `SEM_CONTA` (cliente sem conta) ou `INDISPONIVEL` (Core fora do ar), com `numeroConta`, `agencia` e `saldo` nulos. Nenhum dado é inventado.
 
 ### API RESTful (`/api/v1`)
 
@@ -160,10 +166,10 @@ Um **controller adaptador** mantém as rotas legadas em `/api/credito/*`. Ele s�
 | `/api/credito/solicitarCredito` | `POST /api/v1/solicitacoes` | Internet Banking Mobile |
 | `/api/credito/consultarStatusCredito` | `GET /api/v1/solicitacoes?cpf={cpf}` | Internet Banking Mobile |
 | `/api/credito/consultarClienteCore` | `GET /api/v1/clientes/{cpf}/conta` | Internet Banking Mobile |
-| `/api/credito/listarTodasSolicitacoes` | `GET /api/v1/solicitacoes` | — |
-| `/api/credito/buscarSolicitacaoPorId` | `GET /api/v1/solicitacoes/{id}` | — |
-| `/api/credito/aprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | — |
-| `/api/credito/reprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | — |
+| `/api/credito/listarTodasSolicitacoes` | `GET /api/v1/solicitacoes` | Mesa de Operações |
+| `/api/credito/buscarSolicitacaoPorId` | `GET /api/v1/solicitacoes/{id}` | Mesa de Operações |
+| `/api/credito/aprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | Mesa de Operações |
+| `/api/credito/reprovarSolicitacao` | `PUT /api/v1/solicitacoes/{id}/status` | Mesa de Operações |
 
 - **Mesa de Operações** e **Internet Banking Mobile:** continuam consumindo as rotas legadas (`/api/credito/*`) sem nenhuma alteração; o adaptador garante que continuem funcionando.
 - O corpo de resposta mantém exatamente os mesmos nomes de campo do sistema legado (`id, cpfCliente, nomeCliente, tipoCredito, valorSolicitado, quantidadeParcelas, rendaMensal, scoreCredito, status, parecerOperador, scrRestricoes, scoreBureau, dataSolicitacao, dataAtualizacao`), tanto nas rotas novas quanto nas legadas.
@@ -225,6 +231,6 @@ npm run start
 | Carlos Eduardo Oliveira | `98765432100` | R$ 12.000,00 | `0001 / 78901-2`, saldo R$ 45.800,50 | Crédito imobiliário, R$ 350.000 em 180x | `APROVADO` |
 | Mariana Souza | `55544433399` | R$ 4.200,00 | Sem conta | Crédito automotivo, R$ 45.000 em 48x | `REPROVADO` (SCR) |
 
-> Se a Plataforma subir com o Core Bancário desligado, as solicitações de Ana e Carlos são encaminhadas para a Mesa (`EM_ANALISE`), porque a conta ativa não pode ser confirmada.
+> O resultado das solicitações iniciais não depende do Core Bancário estar no ar: o motor usa apenas SCR, Bureau e renda.
 
 **Para testar a Mesa:** envie pelo app uma proposta cuja parcela passe de 30% da renda. Exemplo: Ana Silva, R$ 60.000 em 12x (parcela de R$ 5.000).
